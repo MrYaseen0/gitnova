@@ -16,10 +16,10 @@
 
 | # | Vulnerability | Status | Notes |
 |---|--------------|--------|-------|
-| C1 | Weak JWT secret (`gitnova-super-secret-key-change-in-production-2026`) | ✅ FIXED | Rotated to 64-char hex via `crypto.randomBytes(32)` |
+| C1 | Weak JWT secret (hardcoded in `.env`) | ✅ FIXED | Rotated to 64-char hex via `crypto.randomBytes(32)` |
 | C2 | Hardcoded JWT fallback in source code | ✅ FIXED | Server crashes if `JWT_SECRET` not set |
 | C3 | Password reset token returned in API response | ✅ FIXED | Removed from response body |
-| C4 | Real Neon DB credentials in `.env` and `DEPLOYMENT.md` | ⚠️ PARTIAL | Replaced in `DEPLOYMENT.md` with placeholder; `.env` rotated. Git history still contains old creds — **rotate Neon password in Neon dashboard** |
+| C4 | Real Neon DB credentials in `.env` and `DEPLOYMENT.md` | ⚠️ PARTIAL | Replaced in `DEPLOYMENT.md` with placeholder; `.env` rotated. **Must rotate Neon password in Neon dashboard** |
 | C5 | JWT stored in `localStorage` (XSS-vulnerable) | ✅ FIXED | Moved to httpOnly cookie (`auth_token`). Bearer header kept as fallback for API clients |
 | C6 | Demo login creates fake authenticated user client-side | ✅ FIXED | Demo now hits `POST /api/auth/demo` server endpoint |
 
