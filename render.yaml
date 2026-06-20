@@ -1,0 +1,25 @@
+# GitNova Backend - Render Blueprint
+# This file auto-configures your backend service on Render.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: gitnova-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install && npm run build && npx prisma generate && npx prisma db push
+    startCommand: node dist/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Set manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true # Auto-generates a secure random string
+      - key: PORT
+        value: 3001
+      - key: CORS_ORIGIN
+        sync: false # Set to your Vercel frontend URL after deployment
