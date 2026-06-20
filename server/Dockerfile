@@ -22,8 +22,8 @@ COPY tsconfig.json ./
 COPY src ./src/
 
 # Build TypeScript and generate Prisma client
-RUN npm run build
 RUN npx prisma generate
+RUN npm run build
 
 # Prisma DB push (uses DATABASE_URL at build time)
 # Uncomment if you want schema pushed at build:
