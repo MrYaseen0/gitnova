@@ -6,14 +6,42 @@ import prisma from '../lib/prisma';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'gitnova-dev-secret-change-in-production';
-const JWT_EXPIRES_IN = '7d';
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = '2h';
+const isProd = process.env.NODE_ENV === 'production';
+
+function setAuthCookie(res: Response, token: string) {
+  res.cookie('auth_token', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 2 * 60 * 60 * 1000,
+    path: '/',
+  });
+}
+
+function clearAuthCookie(res: Response) {
+  res.cookie('auth_token', '', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 0,
+    path: '/',
+  });
+}
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
 });
 
 const loginSchema = z.object({
@@ -69,6 +97,7 @@ router.post('/register', async (req, res: Response) => {
     });
 
     const token = generateToken(user.id);
+    setAuthCookie(res, token);
 
     await prisma.activity.create({
       data: {
@@ -108,6 +137,7 @@ router.post('/login', async (req, res: Response) => {
     }
 
     const token = generateToken(user.id);
+    setAuthCookie(res, token);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -160,6 +190,7 @@ router.post('/demo', async (req, res: Response) => {
     });
 
     const token = generateToken(user.id);
+    setAuthCookie(res, token);
 
     await prisma.activity.create({
       data: {
@@ -209,17 +240,29 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// POST /api/auth/logout
+router.post('/logout', (_req, res: Response) => {
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out successfully' });
+});
+
 // PUT /api/auth/profile
+const updateProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be 50 characters or less').optional(),
+  bio: z.string().max(500, 'Bio must be 500 characters or less').optional(),
+  avatar: z.string().max(1_000_000, 'Avatar data too large').optional(),
+});
+
 router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const { name, bio, avatar } = req.body;
+    const body = updateProfileSchema.parse(req.body);
 
     const user = await prisma.user.update({
       where: { id: req.userId },
       data: {
-        ...(name !== undefined && { name }),
-        ...(bio !== undefined && { bio }),
-        ...(avatar !== undefined && { avatar }),
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.bio !== undefined && { bio: body.bio }),
+        ...(body.avatar !== undefined && { avatar: body.avatar }),
       },
       select: {
         id: true,
@@ -235,6 +278,9 @@ router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response) =
 
     res.json({ user });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -260,11 +306,9 @@ router.post('/forgot-password', async (req, res: Response) => {
 
     const resetToken = jwt.sign({ userId: user.id, type: 'password-reset' }, JWT_SECRET, { expiresIn: '1h' });
 
-    // In production, send email here with the reset link
-    // For now, return the token (frontend can use it)
     console.log(`Password reset token for ${email}: ${resetToken}`);
 
-    res.json({ message: 'If an account with that email exists, a reset link has been sent.', resetToken });
+    res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -274,14 +318,17 @@ router.post('/forgot-password', async (req, res: Response) => {
 // POST /api/auth/reset-password
 const resetPasswordSchema = z.object({
   token: z.string(),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
 });
 
 router.post('/reset-password', async (req, res: Response) => {
   try {
     const body = resetPasswordSchema.parse(req.body);
 
-    let decoded: any;
+    let decoded: { userId: string; type: string };
     try {
       decoded = jwt.verify(body.token, JWT_SECRET) as { userId: string; type: string };
     } catch {
@@ -318,12 +365,10 @@ router.post('/avatar', authMiddleware, async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'Avatar data is required' });
     }
 
-    // Validate it's a base64 data URL
     if (!avatar.startsWith('data:image/')) {
       return res.status(400).json({ error: 'Invalid image format' });
     }
 
-    // Check size (max 500KB)
     const base64Data = avatar.split(',')[1];
     const sizeInBytes = Math.ceil(base64Data.length * 3 / 4);
     if (sizeInBytes > 500 * 1024) {

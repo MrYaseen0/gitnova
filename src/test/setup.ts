@@ -83,10 +83,22 @@ vi.stubGlobal('fetch', vi.fn((url: string, options?: { method?: string; body?: s
       json: () => Promise.resolve({ user: mockUser }),
     });
   }
+  if (url.includes('/api/auth/logout')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Logged out' }),
+    });
+  }
   if (url.includes('/api/auth/profile')) {
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({ user: mockUser }),
+    });
+  }
+  if (url.includes('/api/progress/reset')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Progress reset successfully' }),
     });
   }
   if (url.includes('/api/progress')) {
@@ -111,6 +123,12 @@ vi.stubGlobal('fetch', vi.fn((url: string, options?: { method?: string; body?: s
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({ levels: [], grouped: {} }),
+    });
+  }
+  if (url.includes('/api/settings/account')) {
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ message: 'Account deleted successfully' }),
     });
   }
   if (url.includes('/api/settings')) {

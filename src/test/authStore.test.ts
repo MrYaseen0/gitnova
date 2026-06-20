@@ -38,7 +38,7 @@ describe('authStore', () => {
       await useAuthStore.getState().loginAsDemo();
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
-      useAuthStore.getState().logout();
+      await useAuthStore.getState().logout();
       const { user, isAuthenticated } = useAuthStore.getState();
       expect(isAuthenticated).toBe(false);
       expect(user).toBeNull();
@@ -48,7 +48,7 @@ describe('authStore', () => {
       await useAuthStore.getState().loginAsDemo();
       expect(localStorage.getItem('gitnova_token')).not.toBeNull();
 
-      useAuthStore.getState().logout();
+      await useAuthStore.getState().logout();
       expect(localStorage.getItem('gitnova_token')).toBeNull();
     });
   });
@@ -220,7 +220,7 @@ describe('authStore', () => {
       useAuthStore.getState().completeLevel('git', 1, 100);
       useAuthStore.getState().incrementStreak();
 
-      useAuthStore.getState().resetProgress();
+      await useAuthStore.getState().resetProgress();
 
       const user = useAuthStore.getState().user;
       expect(user?.xp).toBe(0);
@@ -234,7 +234,7 @@ describe('authStore', () => {
   describe('deleteAccount', () => {
     it('clears user and token', async () => {
       await useAuthStore.getState().loginAsDemo();
-      useAuthStore.getState().deleteAccount();
+      await useAuthStore.getState().deleteAccount();
 
       expect(useAuthStore.getState().user).toBeNull();
       expect(useAuthStore.getState().isAuthenticated).toBe(false);

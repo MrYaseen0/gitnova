@@ -130,6 +130,7 @@ class ApiClient {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      credentials: 'include',
     });
 
     const data = await res.json();
@@ -153,8 +154,8 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'PUT', body });
   }
 
-  delete<T>(endpoint: string) {
-    return this.request<T>(endpoint, { method: 'DELETE' });
+  delete<T>(endpoint: string, body?: unknown) {
+    return this.request<T>(endpoint, { method: 'DELETE', body });
   }
 }
 
@@ -173,11 +174,13 @@ export const authApi = {
   updateProfile: (data: { name?: string; bio?: string; avatar?: string }) =>
     api.put<{ user: User }>('/auth/profile', data),
   forgotPassword: (email: string) =>
-    api.post<{ message: string; resetToken?: string }>('/auth/forgot-password', { email }),
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
   resetPassword: (token: string, password: string) =>
     api.post<{ message: string }>('/auth/reset-password', { token, password }),
   uploadAvatar: (avatar: string) =>
     api.post<{ avatar: string }>('/auth/avatar', { avatar }),
+  logout: () =>
+    api.post<{ message: string }>('/auth/logout'),
 };
 
 // Progress
@@ -243,8 +246,8 @@ export const settingsApi = {
     api.get<{ settings: Settings }>('/settings'),
   update: (data: Record<string, unknown>) =>
     api.put<{ settings: Settings }>('/settings', data),
-  deleteAccount: () =>
-    api.delete<{ message: string }>('/settings/account'),
+  deleteAccount: (password: string) =>
+    api.delete<{ message: string }>('/settings/account', { password }),
 };
 
 // Levels

@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [resetDone, setResetDone] = useState(false);
   const [deleteDone, setDeleteDone] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
 
   const handleSave = () => {
     updateProfile({
@@ -62,8 +63,9 @@ export default function SettingsPage() {
   };
 
   const handleDeleteAccount = () => {
+    if (!deletePassword.trim()) return;
     setShowDeleteConfirm(false);
-    deleteAccount();
+    deleteAccount(deletePassword);
     setDeleteDone(true);
     setTimeout(() => { nav('/'); }, 1500);
   };
@@ -424,9 +426,22 @@ export default function SettingsPage() {
                 <Trash2 size={28} color="#EF4444" />
               </div>
               <h3 style={{ fontFamily: 'Sora', fontWeight: 700, fontSize: 18, marginBottom: 8, margin: '0 0 8px' }}>Delete Account?</h3>
-              <p style={{ color: '#6B7280', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
+              <p style={{ color: '#6B7280', fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
                 This will permanently delete your account, all progress, and personal data. This action is irreversible.
               </p>
+              <input
+                type="password"
+                placeholder="Enter your password to confirm"
+                value={deletePassword}
+                onChange={e => setDeletePassword(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 14px', borderRadius: 10,
+                  border: '1px solid #E8E4DD', fontSize: 14, outline: 'none',
+                  background: '#F8F8F6', fontFamily: 'Inter', color: '#1A1A1A',
+                  marginBottom: 16, boxSizing: 'border-box',
+                }}
+                aria-label="Password to confirm deletion"
+              />
               <div style={{ display: 'flex', gap: 10 }}>
                 <motion.button
                   whileTap={{ scale: 0.97 }}

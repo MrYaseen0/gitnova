@@ -48,3 +48,4 @@ server/src/generated/
 test-results/
 lint-results.json
 string.txt
+.vercel

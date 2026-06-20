@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth';
 import progressRoutes from './routes/progress';
 import leaderboardRoutes from './routes/leaderboard';
@@ -14,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+app.use(cookieParser());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -23,9 +25,18 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'"],
       fontSrc: ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  noSniff: true,
+  xssFilter: true,
 }));
 app.use(cors({
   origin: (origin, callback) => {

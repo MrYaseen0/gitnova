@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 
@@ -59,14 +60,37 @@ router.put('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 });
 
 // DELETE /api/settings/account
+const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required to delete account'),
+});
+
 router.delete('/account', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const body = deleteAccountSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { password: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(body.password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+
     await prisma.user.delete({
       where: { id: req.userId },
     });
 
     res.json({ message: 'Account deleted successfully' });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.issues[0].message });
+    }
     console.error('Delete account error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }

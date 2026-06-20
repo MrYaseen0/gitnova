@@ -36,13 +36,18 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && adduser -S appuser -u 1001 -G appgroup
+
 # Copy built artifacts and production dependencies
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/prisma ./prisma/
-COPY --from=builder /app/prisma.config.ts ./
-COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+COPY --from=builder --chown=appuser:appgroup /app/prisma ./prisma/
+COPY --from=builder --chown=appuser:appgroup /app/prisma.config.ts ./
+COPY --from=builder --chown=appuser:appgroup /app/src/generated ./src/generated
+
+USER appuser
 
 EXPOSE 3001
 

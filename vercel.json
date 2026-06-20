@@ -23,5 +23,11 @@
   ],
   "env": {
     "VITE_API_URL": "@api-url"
+  },
+  "experimentalServices": {
+    "web": {
+      "routePrefix": "/",
+      "framework": "vite"
+    }
   }
 }

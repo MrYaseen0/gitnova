@@ -1,23 +1,41 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gitnova-dev-secret-change-in-production';
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export interface AuthRequest extends Request {
   userId?: string;
 }
 
-export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
+function extractToken(req: Request): string | null {
+  const cookies = (req as unknown as Record<string, unknown>).cookies as Record<string, string> | undefined;
+  const cookieToken = cookies?.auth_token;
+  if (typeof cookieToken === 'string' && cookieToken) return cookieToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+
+  return null;
+}
+
+export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  const token = extractToken(req);
+
+  if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
 
-  const token = authHeader.split(' ')[1];
-
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; type?: string };
+    if (decoded.type) {
+      return res.status(401).json({ error: 'Invalid token type' });
+    }
     req.userId = decoded.userId;
     next();
   } catch {
@@ -25,14 +43,15 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   }
 }
 
-export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
+export function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction) {
+  const token = extractToken(req);
 
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.split(' ')[1];
+  if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-      req.userId = decoded.userId;
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; type?: string };
+      if (!decoded.type) {
+        req.userId = decoded.userId;
+      }
     } catch {
       // Token invalid, continue without auth
     }

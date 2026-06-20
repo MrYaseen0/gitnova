@@ -8,6 +8,7 @@ const router = Router();
 const completeLevelSchema = z.object({
   levelId: z.string(),
   score: z.number().int().min(0).max(100).default(100),
+  language: z.string().optional(),
 });
 
 // POST /api/progress/complete
@@ -21,6 +22,10 @@ router.post('/complete', authMiddleware, async (req: AuthRequest, res: Response)
 
     if (!level) {
       return res.status(404).json({ error: 'Level not found' });
+    }
+
+    if (body.language && body.language !== level.language) {
+      return res.status(400).json({ error: 'Language mismatch for this level' });
     }
 
     const existing = await prisma.userLevel.findUnique({
@@ -314,6 +319,24 @@ router.get('/analytics', authMiddleware, async (req: AuthRequest, res: Response)
     });
   } catch (error) {
     console.error('Get analytics error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/progress/reset
+router.delete('/reset', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    await prisma.userLevel.deleteMany({ where: { userId: req.userId } });
+    await prisma.userAchievement.deleteMany({ where: { userId: req.userId } });
+    await prisma.activity.deleteMany({ where: { userId: req.userId } });
+    await prisma.user.update({
+      where: { id: req.userId },
+      data: { xp: 0, level: 1, streak: 0 },
+    });
+
+    res.json({ message: 'Progress reset successfully' });
+  } catch (error) {
+    console.error('Reset progress error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -10,10 +10,10 @@ interface AuthState {
   loginWithProvider: (provider: string) => Promise<boolean>;
   register: (data: { name: string; username: string; email: string; password: string; language: Language }) => Promise<boolean>;
   loginAsDemo: () => Promise<void>;
-  logout: () => void;
-  updateProfile: (data: { name?: string; username?: string; email?: string; language?: Language; emailNotifications?: boolean; streakReminders?: boolean }) => void;
-  resetProgress: () => void;
-  deleteAccount: () => void;
+  logout: () => Promise<void>;
+  updateProfile: (data: { name?: string; username?: string; email?: string; language?: Language; emailNotifications?: boolean; streakReminders?: boolean; bio?: string }) => void;
+  resetProgress: () => Promise<void>;
+  deleteAccount: (password?: string) => Promise<void>;
   updateXP: (amount: number) => void;
   completeLevel: (language: Language, levelId: number, xp: number) => void;
   incrementStreak: () => void;
@@ -149,7 +149,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // proceed with local logout even if server fails
+    }
     api.setToken(null);
     set({ user: null, isAuthenticated: false });
   },
@@ -205,13 +210,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: updated });
 
     if (!user.isDemo) {
-      authApi.updateProfile({ name: data.name }).catch(() => {});
+      authApi.updateProfile({ name: data.name, bio: (data as Record<string, unknown>).bio as string | undefined }).catch(() => {});
     }
   },
 
-  resetProgress: () => {
+  resetProgress: async () => {
     const { user } = get();
     if (!user) return;
+    try {
+      await api.delete('/progress/reset');
+    } catch {
+      // proceed with local reset even if server fails
+    }
     const updated = {
       ...user,
       xp: 0,
@@ -226,7 +236,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: updated });
   },
 
-  deleteAccount: () => {
+  deleteAccount: async (password?: string) => {
+    const { user } = get();
+    if (!user) return;
+    try {
+      if (password) {
+        await api.delete('/settings/account', { password });
+      } else {
+        await api.delete('/settings/account');
+      }
+    } catch {
+      // proceed with local logout even if server fails
+    }
     api.setToken(null);
     set({ user: null, isAuthenticated: false });
   },
